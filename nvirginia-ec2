@@ -1,0 +1,106 @@
+###########Configure AWS Provider###############
+provider "aws" {
+  region = "us-east-1"
+}
+
+############# VPC #######################
+resource "aws_vpc" "HKKR-VPC" {
+  cidr_block = "10.0.0.0/24"
+  tags = {
+    Name = "HKHR-VPC"
+  }
+}
+
+############# Internet Gateway ##########
+resource "aws_internet_gateway" "HKHR-IGW" {
+  vpc_id = aws_vpc.HKKR-VPC.id
+  tags = {
+    Name = "HKHR-IGW"
+  }
+}
+
+################ Subnet ###############
+resource "aws_subnet" "HKHR-Subnet-1" {
+  vpc_id     = aws_vpc.HKKR-VPC.id
+  cidr_block = "10.0.0.0/25"
+  tags = {
+    Name = "HKHR-Subnet-1"
+  }
+}
+
+############## Subnet ###############
+resource "aws_subnet" "HKHR-Subnet-2" {
+  vpc_id     = aws_vpc.HKKR-VPC.id
+  cidr_block = "10.0.0.128/25"
+  tags = {
+    "Name" = "HKHR-Subnet-2"
+  }
+}
+
+############### Route Table ##############
+resource "aws_route_table" "HKHR-RT" {
+  vpc_id = aws_vpc.HKKR-VPC.id
+  route  = []
+  tags = {
+    "Name" = "HKHR-RT"
+  }
+}
+
+################## Route ###############
+resource "aws_route" "HKHR-Route" {
+  route_table_id         = aws_route_table.HKHR-RT.id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = aws_internet_gateway.HKHR-IGW.id
+  depends_on             = [aws_route_table.HKHR-RT]
+}
+
+######### Route Table Association ########
+resource "aws_route_table_association" "HKHR-RTA-1" {
+  subnet_id      = aws_subnet.HKHR-Subnet-1.id
+  route_table_id = aws_route_table.HKHR-RT.id
+}
+
+resource "aws_route_table_association" "HKHR-RTA-2" {
+  subnet_id      = aws_subnet.HKHR-Subnet-2.id
+  route_table_id = aws_route_table.HKHR-RT.id
+}
+
+################## Security Group ##############
+resource "aws_security_group" "HKHR-SG" {
+  name        = "Allow_all_traffic"
+  description = "Allow_all_inbound_traffic"
+  vpc_id      = aws_vpc.HKKR-VPC.id
+
+  ingress {
+    description      = "All Traffic"
+    from_port        = 0    #All ports
+    to_port          = 0    #All ports
+    protocol         = "-1" #All Protocol
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = null
+  }
+
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+
+  tags = {
+    Name = "All Traffic"
+  }
+}
+
+
+################ EC2 Instance ##################
+resource "aws_instance" "HKHR-Windows" {
+  ami           = "ami-033594f8862b03bb2"
+  instance_type = "t2.micro"
+  key_name      = "EC2-Test"
+  subnet_id     = aws_subnet.HKHR-Subnet-2.id
+  tags = {
+    "Name" = "HKHR-Windows2019"
+  }
+}
